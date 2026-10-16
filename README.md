@@ -100,6 +100,11 @@ Resources are identified by UUID only; internal numeric IDs are never exposed.
 `V8` refresh-token storage (for revocation), `V9` single-use share links, and `V10` `ON DELETE`
 rules so account and team deletion cascade cleanly.
 
+## Hosted test link (preview)
+
+`preview/` runs the published images (app + API + PostgreSQL, behind automatic HTTPS) so testers can use
+Sona from a single link — see [`preview/README.md`](preview/README.md) for Railway and VPS setups.
+
 ## Branching & CI
 
 - `develop` is the default branch. Every change goes on its own branch (`feat/…`, `fix/…`, `ci/…`), is pushed,
