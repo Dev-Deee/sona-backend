@@ -1,0 +1,5 @@
+# Automatic HTTPS for the preview domain (HTTPS is required for the PWA to install and work offline).
+{$SONA_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:80
+}

@@ -1,0 +1,72 @@
+# Sona preview stack — runs the images CI publishes, for testers.
+#   cp .env.example .env   # fill in SONA_DOMAIN, JWT_SECRET, POSTGRES_PASSWORD
+#   docker compose up -d
+# Caddy serves https://$SONA_DOMAIN with an automatic certificate and forwards to the app;
+# the app's nginx forwards /api to the API, so everything is one origin.
+name: sona-preview
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sona
+      POSTGRES_USER: sona
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sona -d sona"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ghcr.io/dev-deee/sona-backend:${SONA_TAG:-develop}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/sona
+      DATABASE_USERNAME: sona
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -base64 48)}
+      CORS_ORIGINS: https://${SONA_DOMAIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  frontend:
+    image: ghcr.io/dev-deee/sona-frontend:${SONA_TAG:-develop}
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SONA_DOMAIN: ${SONA_DOMAIN:?Set SONA_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
