@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  forward-headers-strategy: native
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiry-ms: 900000        # 15 min
+  refresh-expiry-ms: 604800000    # 7 days
+
+sona:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:https://trysona.io}
+  rate-limit:
+    auth-requests-per-second: 10
+
+springdoc:
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}

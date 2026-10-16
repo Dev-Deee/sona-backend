@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/sona_db}
+    username: ${SPRING_DATASOURCE_USERNAME:sona_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:sona_pass}
+
+jwt:
+  # Dev-only fallback so `./mvnw spring-boot:run` works out of the box. Never used in prod.
+  secret: ${JWT_SECRET:dev-only-secret-key-change-me-at-least-256-bits-long!!}
+
+logging:
+  level:
+    io.trysona.sona: DEBUG

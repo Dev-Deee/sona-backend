@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: sona-backend
+  profiles:
+    default: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: always
+
+server:
+  port: 8080
+  error:
+    include-stacktrace: never
+    include-message: never
+
+jwt:
+  secret: ${JWT_SECRET:}
+  access-expiry-ms: 900000        # 15 min
+  refresh-expiry-ms: 604800000    # 7 days
+
+sona:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,https://trysona.io}
+  rate-limit:
+    auth-requests-per-second: 10
+  share:
+    expiry-days: 7
+
+# Swagger UI at the springdoc defaults: /swagger-ui/index.html (UI) and /v3/api-docs (JSON).
+# /api/docs redirects to the UI (see DocsRedirectController).
+springdoc:
+  swagger-ui:
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

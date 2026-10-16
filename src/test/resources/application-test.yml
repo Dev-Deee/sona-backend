@@ -1,0 +1,11 @@
+jwt:
+  secret: test-secret-key-at-least-256-bits-long-for-hs256
+
+sona:
+  rate-limit:
+    # Integration tests fire many auth calls from 127.0.0.1; the limiter itself is unit tested.
+    auth-requests-per-second: 10000
+
+logging:
+  level:
+    org.testcontainers: WARN
