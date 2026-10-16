@@ -1,38 +1,27 @@
 name: Backend CI
 
-# Build + full test suite (unit, integration via Testcontainers, 80% coverage gate).
-# Runs on develop, on every pull request into develop or main, and is reused by the deploy workflow.
+# 1. Build + full test suite (unit, integration via Testcontainers, ≥ 80% line coverage).
+# 2. Build the Docker image. On pushes to develop/main it is published to GHCR
+#    (ghcr.io/<owner>/sona-backend:<branch> and :sha-<commit>); pull requests only build it.
+# Deployment is intentionally not automated yet.
 on:
   push:
-    branches: [develop]
+    branches: [develop, main]
   pull_request:
     branches: [develop, main]
-  workflow_call:
   workflow_dispatch:
 
 concurrency:
   group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Build & test
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: sona_test
-          POSTGRES_USER: sona_user
-          POSTGRES_PASSWORD: sona_pass
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -40,13 +29,9 @@ jobs:
           java-version: "25"
           distribution: "temurin"
           cache: "maven"
-      # Integration tests start their own PostgreSQL via Testcontainers (Docker is available on
-      # ubuntu-latest); the service container above is kept for ad-hoc debugging steps.
-      - name: Build, test and check coverage (≥ 80% lines)
+      # Integration tests start their own PostgreSQL 16 via Testcontainers (Docker is available on ubuntu-latest).
+      - name: Build, test and check coverage
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/sona_test
-          SPRING_DATASOURCE_USERNAME: sona_user
-          SPRING_DATASOURCE_PASSWORD: sona_pass
           JWT_SECRET: test-secret-key-at-least-256-bits-long-for-hs256
         run: ./mvnw -B verify
       - name: Upload test reports
@@ -64,5 +49,37 @@ jobs:
           files: target/site/jacoco/jacoco.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-      - name: Build Docker image
-        run: docker build -t sona-backend:ci .
+
+  image:
+    name: Docker image
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/sona-backend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+      - name: Build${{ github.event_name == 'push' && ' and push' || '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
